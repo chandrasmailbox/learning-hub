@@ -67,7 +67,9 @@ export default function CourseBuilder() {
           course_id: courseId,
           title: a.title,
           type: a.type,
-          weight: a.weight
+          weight: a.weight,
+          max_points: 100,
+          due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 1 week from now
         })
       ))
 

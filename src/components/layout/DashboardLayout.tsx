@@ -88,13 +88,26 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth()
   const [profile, setProfile] = useState<any>(null)
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const [loading, setLoading] = useState(true)
   const location = useLocation()
   const navigate = useNavigate()
 
   useEffect(() => {
-    if (user) {
-      blink.db.profiles.get(user.id).then(setProfile)
+    async function fetchProfile() {
+      if (user) {
+        try {
+          const p = await blink.db.profiles.get(user.id)
+          setProfile(p)
+        } catch (error) {
+          console.error('Error fetching profile in layout:', error)
+        } finally {
+          setLoading(false)
+        }
+      } else {
+        setLoading(false)
+      }
     }
+    fetchProfile()
   }, [user])
 
   const filteredItems = sidebarItems.filter(item => 
@@ -104,6 +117,14 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const handleLogout = async () => {
     await logout()
     navigate('/')
+  }
+
+  if (loading) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
   }
 
   return (

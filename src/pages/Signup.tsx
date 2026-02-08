@@ -31,6 +31,7 @@ export default function Signup() {
         await blink.db.profiles.create({
           user_id: user.id,
           full_name: fullName,
+          email: email,
           role: role,
           avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`
         })

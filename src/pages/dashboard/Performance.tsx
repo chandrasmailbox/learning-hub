@@ -12,19 +12,30 @@ export default function Performance() {
   const [selectedCourse, setSelectedCourse] = useState<any>(null)
 
   useEffect(() => {
-    if (user) {
-      blink.db.enrollments.list({ 
-        where: { student_id: user.id },
-        select: ['id', 'course_id', 'status', 'paid_amount']
-      }).then(async (data) => {
-        const enriched = await Promise.all(data.map(async (e: any) => {
-          const course = await blink.db.courses.get(e.course_id)
-          return { ...e, course }
-        }))
-        setEnrollments(enriched)
-        if (enriched.length > 0) setSelectedCourse(enriched[0])
-      })
+    async function fetchData() {
+      if (user) {
+        try {
+          const data = await blink.db.enrollments.list({ 
+            where: { student_id: user.id },
+            select: ['id', 'course_id', 'status', 'paid_amount']
+          })
+          
+          const enriched = await Promise.all(data.map(async (e: any) => {
+            const course = await blink.db.courses.get(e.course_id)
+            const rewards = await blink.db.rewards.list({ 
+              where: { student_id: user.id, course_id: e.course_id } 
+            })
+            return { ...e, course, reward: rewards[0] }
+          }))
+          
+          setEnrollments(enriched)
+          if (enriched.length > 0) setSelectedCourse(enriched[0])
+        } catch (error) {
+          console.error('Error fetching performance data:', error)
+        }
+      }
     }
+    fetchData()
   }, [user])
 
   if (enrollments.length === 0) {
@@ -171,23 +182,27 @@ export default function Performance() {
             <CardContent className="space-y-6 pt-0">
               <div className="text-center py-4">
                 <div className="text-sm text-white/70 mb-1 font-medium">Total Performance Score</div>
-                <div className="text-6xl font-bold tracking-tighter">89.2</div>
+                <div className="text-6xl font-bold tracking-tighter">
+                  {selectedCourse?.reward?.points || "0.0"}
+                </div>
                 <div className="text-xs text-white/60 mt-2 font-bold uppercase">Points (Out of 100)</div>
               </div>
               
               <div className="space-y-3 bg-black/10 p-4 rounded-xl border border-white/10">
                 <div className="flex justify-between text-sm">
                   <span className="text-white/70">Original Fee</span>
-                  <span className="font-bold">${selectedCourse?.paid_amount}</span>
+                  <span className="font-bold">${selectedCourse?.paid_amount || 0}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-white/70">Refund Rate</span>
-                  <span className="font-bold text-emerald-300">95%</span>
+                  <span className="font-bold text-emerald-300">
+                    {selectedCourse?.reward ? `${((selectedCourse.reward.amount / selectedCourse.paid_amount) * 100).toFixed(0)}%` : "0%"}
+                  </span>
                 </div>
                 <div className="h-px bg-white/10" />
                 <div className="flex justify-between items-center">
                   <span className="font-bold">Projected Earnings</span>
-                  <span className="text-2xl font-bold">${(selectedCourse?.paid_amount * 0.95).toFixed(2)}</span>
+                  <span className="text-2xl font-bold">${selectedCourse?.reward?.amount || "0.00"}</span>
                 </div>
               </div>
 

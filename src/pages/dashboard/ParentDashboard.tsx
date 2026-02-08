@@ -37,33 +37,42 @@ export default function ParentDashboard() {
     e.preventDefault()
     setLoading(true)
     try {
-      // 1. Find student by email (assuming email is used as ID or we need to find profile)
-      // For demo, we'll simulate finding a student
-      toast.info(`Searching for student: ${studentEmail}`)
+      // 1. Find student by email in profiles
+      const studentProfiles = await blink.db.profiles.list({
+        where: { email: studentEmail, role: 'student' }
+      })
+
+      if (studentProfiles.length === 0) {
+        toast.error('Student not found. Please verify the email address.')
+        return
+      }
+
+      const student = studentProfiles[0]
+
+      // 2. Check if already linked
+      const existing = await blink.db.student_parents.list({
+        where: { parent_id: user?.id, student_id: student.user_id }
+      })
+
+      if (existing.length > 0) {
+        toast.error('Student is already linked to your account.')
+        return
+      }
+
+      // 3. Create link
+      await blink.db.student_parents.create({
+        id: `sp_${Math.random().toString(36).substring(2, 9)}`,
+        parent_id: user?.id,
+        student_id: student.user_id,
+        status: 'linked'
+      })
       
-      setTimeout(async () => {
-        try {
-          // Mock successful link for demo
-          const mockStudentId = `student_${Math.random().toString(36).substring(2, 9)}`
-          
-          await blink.db.student_parents.create({
-            id: `sp_${Math.random().toString(36).substring(2, 9)}`,
-            parent_id: user?.id,
-            student_id: mockStudentId,
-            status: 'linked'
-          })
-          
-          toast.success('Student linked successfully!')
-          setStudentEmail('')
-          fetchStudents()
-        } catch (err: any) {
-          toast.error(err.message)
-        } finally {
-          setLoading(false)
-        }
-      }, 1000)
+      toast.success(`${student.full_name} linked successfully!`)
+      setStudentEmail('')
+      fetchStudents()
     } catch (error: any) {
-      toast.error(error.message)
+      toast.error(error.message || 'Failed to link student')
+    } finally {
       setLoading(false)
     }
   }
@@ -190,7 +199,7 @@ export default function ParentDashboard() {
                 <p className="text-xs text-background/60 font-bold uppercase">Expected Refund</p>
                 <p className="text-3xl font-bold tracking-tight">$1,245.50</p>
               </div>
-              <Button className="w-full bg-primary text-white hover:bg-primary/90">
+              <Button className="w-full bg-primary text-white hover:bg-primary/90" onClick={() => window.location.href = '/dashboard/rewards'}>
                 Manage Wallet
               </Button>
             </CardContent>

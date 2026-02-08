@@ -9,15 +9,52 @@ import { toast } from 'sonner'
 
 export default function Wallet() {
   const { user } = useAuth()
-  const [balance, setBalance] = useState(1250.00)
-  const [transactions, setTransactions] = useState<any[]>([
-    { id: 1, type: 'refund', amount: 450.00, date: '2026-02-05', status: 'completed', description: 'Calculus I Refund' },
-    { id: 2, type: 'scholarship', amount: 50.00, date: '2026-02-01', status: 'completed', description: 'Dean List Scholarship' },
-    { id: 3, type: 'withdrawal', amount: -200.00, date: '2026-01-28', status: 'completed', description: 'Visa Gift Card' }
-  ])
+  const [balance, setBalance] = useState(0)
+  const [transactions, setTransactions] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function fetchData() {
+      if (user) {
+        try {
+          const rewardList = await blink.db.rewards.list({ 
+            where: { student_id: user.id } 
+          })
+          
+          const enriched = await Promise.all(rewardList.map(async (r: any) => {
+            const course = await blink.db.courses.get(r.course_id)
+            return { 
+              ...r, 
+              description: r.type === 'scholarship' ? 'Scholarship Award' : `${course?.title || 'Course'} Refund`,
+              date: r.created_at
+            }
+          }))
+          
+          setTransactions(enriched)
+          const total = enriched
+            .filter(t => t.status === 'approved' || t.status === 'completed')
+            .reduce((sum, t) => sum + (Number(t.amount) || 0), 0)
+          setBalance(total)
+        } catch (error) {
+          console.error('Error fetching wallet data:', error)
+        } finally {
+          setLoading(false)
+        }
+      }
+    }
+    fetchData()
+  }, [user])
 
   const handleWithdraw = (method: string) => {
     toast.success(`Withdrawal request via ${method} submitted for review.`)
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-[60vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
   }
 
   return (
